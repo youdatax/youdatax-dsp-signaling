@@ -1,0 +1,85 @@
+/*
+ *  Copyright (c) 2026 Think-it GmbH
+ *
+ *  This program and the accompanying materials are made available under the
+ *  terms of the Apache License, Version 2.0 which is available at
+ *  https://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Contributors:
+ *       Think-it GmbH - initial API and implementation
+ *
+ */
+
+package org.eclipse.edc.signaling.port.api.management;
+
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.edc.connector.dataplane.selector.spi.DataPlaneSelectorService;
+import org.eclipse.edc.connector.dataplane.selector.spi.instance.AuthorizationProfile;
+import org.eclipse.edc.connector.dataplane.selector.spi.instance.DataPlaneInstance;
+import org.eclipse.edc.participantcontext.single.spi.SingleParticipantContextSupplier;
+import org.eclipse.edc.signaling.domain.DataPlaneRegistrationMessage;
+
+import java.util.Map;
+
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.eclipse.edc.web.spi.exception.ServiceResultHandler.mapToException;
+
+@Path("/v4/dataplanes")
+@Produces(APPLICATION_JSON)
+@Consumes(APPLICATION_JSON)
+public class DataPlaneRegistrationApiV4Controller implements DataPlaneRegistrationApiV4 {
+
+    private final DataPlaneSelectorService dataPlaneSelectorService;
+    private final SingleParticipantContextSupplier participantContextSupplier;
+
+    public DataPlaneRegistrationApiV4Controller(DataPlaneSelectorService dataPlaneSelectorService, SingleParticipantContextSupplier participantContextSupplier) {
+        this.dataPlaneSelectorService = dataPlaneSelectorService;
+        this.participantContextSupplier = participantContextSupplier;
+    }
+
+    @PUT
+    @Override
+    public Response register(DataPlaneRegistrationMessage registration) {
+        toAuthorizationProfile(registration.authorization());
+
+        participantContextSupplier.get().map(participantContext -> DataPlaneInstance.Builder.newInstance()
+                        .id(registration.dataplaneId())
+                        .url(registration.endpoint())
+                        .allowedTransferType(registration.transferTypes())
+                        .authorizationProfile(toAuthorizationProfile(registration.authorization()))
+                        .participantContextId(participantContext.getParticipantContextId())
+                        .labels(registration.labels())
+                        .build())
+                .compose(dataPlaneSelectorService::register)
+                .orElseThrow(it -> mapToException(it, DataPlaneInstance.class, registration.dataplaneId()));
+
+        return Response.ok().build();
+    }
+
+    @Path("/{dataplaneId}")
+    @DELETE
+    @Override
+    public Response delete(@PathParam("dataplaneId") String dataplaneId) {
+        dataPlaneSelectorService.delete(dataplaneId)
+                .orElseThrow(it -> mapToException(it, DataPlaneInstance.class, dataplaneId));
+
+        return Response.ok().build();
+    }
+
+    private AuthorizationProfile toAuthorizationProfile(Map<String, Object> authorization) {
+        if (authorization == null) {
+            return null;
+        }
+
+        return new AuthorizationProfile((String) authorization.get("type"), authorization);
+    }
+
+}

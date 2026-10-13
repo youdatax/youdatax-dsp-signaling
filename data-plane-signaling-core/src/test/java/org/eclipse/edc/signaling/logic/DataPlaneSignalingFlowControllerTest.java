@@ -1,0 +1,629 @@
+/*
+ *  Copyright (c) 2024 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)
+ *
+ *  This program and the accompanying materials are made available under the
+ *  terms of the Apache License, Version 2.0 which is available at
+ *  https://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Contributors:
+ *       Bayerische Motoren Werke Aktiengesellschaft (BMW AG) - initial API and implementation
+ *
+ */
+
+package org.eclipse.edc.signaling.logic;
+
+import org.eclipse.edc.connector.controlplane.asset.spi.domain.Asset;
+import org.eclipse.edc.connector.controlplane.asset.spi.domain.DataplaneMetadata;
+import org.eclipse.edc.connector.controlplane.asset.spi.index.AssetIndex;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.DataAddressStore;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.DataFlowResponse;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.TransferProcess;
+import org.eclipse.edc.connector.dataplane.selector.spi.DataPlaneSelectorService;
+import org.eclipse.edc.connector.dataplane.selector.spi.instance.DataPlaneInstance;
+import org.eclipse.edc.policy.model.Policy;
+import org.eclipse.edc.signaling.domain.DataFlowPrepareMessage;
+import org.eclipse.edc.signaling.domain.DataFlowResumeMessage;
+import org.eclipse.edc.signaling.domain.DataFlowStartMessage;
+import org.eclipse.edc.signaling.domain.DataFlowStatusMessage;
+import org.eclipse.edc.signaling.domain.DataFlowSuspendMessage;
+import org.eclipse.edc.signaling.domain.DspDataAddress;
+import org.eclipse.edc.signaling.port.ClientFactory;
+import org.eclipse.edc.signaling.port.DataPlaneSignalingClient;
+import org.eclipse.edc.spi.response.ResponseStatus;
+import org.eclipse.edc.spi.response.StatusResult;
+import org.eclipse.edc.spi.result.Result;
+import org.eclipse.edc.spi.result.ServiceResult;
+import org.eclipse.edc.spi.result.StoreResult;
+import org.eclipse.edc.spi.types.domain.DataAddress;
+import org.eclipse.edc.transform.spi.TypeTransformerRegistry;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.edc.junit.assertions.AbstractResultAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+public class DataPlaneSignalingFlowControllerTest {
+
+    private static final String HTTP_DATA_PULL = "HttpData-PULL";
+    private final DataPlaneSignalingClient dataPlaneClient = mock();
+    private final ClientFactory clientFactory = mock();
+    private final DataPlaneSelectorService selectorService = mock();
+    private final TypeTransformerRegistry typeTransformerRegistry = mock();
+    private final DataAddressStore dataAddressStore = mock();
+    private final AssetIndex assetIndex = mock();
+
+    private final DataPlaneSignalingFlowController flowController = new DataPlaneSignalingFlowController(
+            URI.create("http://localhost"), selectorService,
+            typeTransformerRegistry, clientFactory, dataAddressStore, assetIndex);
+
+    @NotNull
+    private DataPlaneInstance.Builder dataPlaneInstanceBuilder() {
+        return DataPlaneInstance.Builder.newInstance().url("http://any");
+    }
+
+    private DataAddress testDataAddress() {
+        return DataAddress.Builder.newInstance().type("test-type").build();
+    }
+
+    private TransferProcess.Builder transferProcessBuilder() {
+        return TransferProcess.Builder.newInstance()
+                .correlationId(UUID.randomUUID().toString())
+                .protocol("test-protocol")
+                .contractId(UUID.randomUUID().toString())
+                .assetId(UUID.randomUUID().toString())
+                .counterPartyAddress("test.connector.address")
+                .transferType("transferType");
+    }
+
+    private Policy.Builder policyBuilder() {
+        return Policy.Builder.newInstance()
+                .assignee("consumer")
+                .assigner("provider");
+    }
+
+    private @NonNull DspDataAddress createDspDataAddress() {
+        return DspDataAddress.Builder.newInstance().build();
+    }
+
+    @Nested
+    class Prepare {
+
+        @Test
+        void shouldCallPrepareOnDataPlane() {
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("data-plane-id").build();
+            Map<String, Object> claims = Map.of("key", "value");
+            var transferProcess = transferProcessBuilder().claims(claims).build();
+            when(selectorService.selectFor(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            var flowResponseMessage = DataFlowStatusMessage.Builder.newInstance()
+                    .dataAddress(createDspDataAddress())
+                    .build();
+            when(dataPlaneClient.prepare(any())).thenReturn(StatusResult.success(flowResponseMessage));
+            when(typeTransformerRegistry.transform(isA(DataAddress.class), any())).thenReturn(Result.success(createDspDataAddress()));
+            var response = DataFlowResponse.Builder.newInstance().dataAddress(testDataAddress()).build();
+            when(typeTransformerRegistry.transform(isA(DataFlowStatusMessage.class), any())).thenReturn(Result.success(response));
+
+            var result = flowController.prepare(transferProcess, policyBuilder().build());
+
+            assertThat(result).isSucceeded().satisfies(actualResponse -> {
+                assertThat(actualResponse.getDataPlaneId()).isEqualTo("data-plane-id");
+            });
+            var captor = ArgumentCaptor.forClass(DataFlowPrepareMessage.class);
+            verify(dataPlaneClient).prepare(captor.capture());
+            var message = captor.getValue();
+            assertThat(message.getClaims()).isSameAs(claims);
+            assertThat(message.getParticipantId()).isEqualTo("consumer");
+            assertThat(message.getCounterPartyId()).isEqualTo("provider");
+
+        }
+
+        @Test
+        void shouldReturnFailure_whenNoDataPlaneIsFound() {
+            var transferProcess = transferProcessBuilder().build();
+            when(selectorService.selectFor(any())).thenReturn(ServiceResult.notFound("no data plane can provision this"));
+
+            var result = flowController.prepare(transferProcess, policyBuilder().build());
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(clientFactory);
+        }
+
+    }
+
+    @Nested
+    class Start {
+        @Test
+        void shouldSelectAndCallStartOnDataplane() {
+            var policy = Policy.Builder.newInstance().assignee("consumer")
+                    .assigner("provider")
+                    .build();
+            Map<String, Object> claims = Map.of("key", "value");
+            var transferProcess = transferProcessBuilder()
+                    .claims(claims)
+                    .transferType(HTTP_DATA_PULL)
+                    .contentDataAddress(testDataAddress())
+                    .build();
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("data-plane-id").build();
+            when(selectorService.selectFor(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(typeTransformerRegistry.transform(isA(DataAddress.class), any())).thenReturn(Result.success(createDspDataAddress()));
+            var response = DataFlowResponse.Builder.newInstance().dataPlaneId("dataPlaneId").dataAddress(testDataAddress()).build();
+            when(typeTransformerRegistry.transform(isA(DataFlowStatusMessage.class), any())).thenReturn(Result.success(response));
+            when(dataPlaneClient.start(any())).thenReturn(StatusResult.success(DataFlowStatusMessage.Builder.newInstance()
+                    .dataAddress(createDspDataAddress())
+                    .build()));
+            when(dataAddressStore.resolve(any())).thenReturn(StoreResult.success(DataAddress.Builder.newInstance().type("test").build()));
+
+            var result = flowController.start(transferProcess, policy);
+
+            assertThat(result).isSucceeded().satisfies(actualResponse -> {
+                assertThat(actualResponse.getDataPlaneId()).isEqualTo("data-plane-id");
+            });
+            var captor = ArgumentCaptor.forClass(DataFlowStartMessage.class);
+            verify(dataPlaneClient).start(captor.capture());
+            var message = captor.getValue();
+            assertThat(message.getClaims()).isSameAs(claims);
+            assertThat(message.getParticipantId()).isEqualTo("provider");
+            assertThat(message.getCounterPartyId()).isEqualTo("consumer");
+        }
+
+        @Test
+        void shouldFail_whenNoDataplaneSelected() {
+            var transferProcess = transferProcessBuilder()
+                    .contentDataAddress(testDataAddress())
+                    .transferType(HTTP_DATA_PULL)
+                    .build();
+
+            when(selectorService.selectFor(any())).thenReturn(ServiceResult.notFound("no dataplane found"));
+
+            var result = flowController.start(transferProcess, Policy.Builder.newInstance().build());
+
+            assertThat(result).isFailed();
+        }
+
+        @Test
+        void returnFailedResultIfTransferFails() {
+            var errorMsg = "error";
+            var transferProcess = transferProcessBuilder()
+                    .contentDataAddress(testDataAddress())
+                    .transferType(HTTP_DATA_PULL)
+                    .build();
+
+            when(dataPlaneClient.start(any())).thenReturn(StatusResult.failure(ResponseStatus.FATAL_ERROR, errorMsg));
+            var dataPlaneInstance = dataPlaneInstanceBuilder().build();
+            when(selectorService.selectFor(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(typeTransformerRegistry.transform(isA(DataAddress.class), any())).thenReturn(Result.success(createDspDataAddress()));
+            when(dataAddressStore.resolve(any())).thenReturn(StoreResult.success(DataAddress.Builder.newInstance().type("test").build()));
+
+            var result = flowController.start(transferProcess, Policy.Builder.newInstance().build());
+
+            verify(dataPlaneClient).start(any());
+
+            assertThat(result.failed()).isTrue();
+            assertThat(result.getFailureMessages()).allSatisfy(s -> assertThat(s).contains(errorMsg));
+        }
+    }
+
+    @Nested
+    class Terminate {
+
+        @Test
+        void shouldCallTerminateOnTheRightDataPlane() {
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            var transferProcess = transferProcessBuilder()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("dataPlaneId")
+                    .build();
+            when(dataPlaneClient.terminate(any(), any())).thenReturn(StatusResult.success());
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+
+            var result = flowController.terminate(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).terminate(eq("transferProcessId"), argThat(it -> it.getMessageId() != null));
+            verify(clientFactory).createClient(dataPlaneInstance);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneNotFound() {
+            var transferProcess = transferProcessBuilder()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("invalid")
+                    .build();
+            when(dataPlaneClient.terminate(any(), any())).thenReturn(StatusResult.success());
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.notFound("not found"));
+
+            var result = flowController.terminate(transferProcess);
+
+            assertThat(result).isFailed().detail().isEqualTo("not found");
+        }
+
+        // a null dataPlaneId means that the flow has not been started so it can be considered as already terminated
+        @Test
+        void shouldReturnSuccess_whenDataPlaneIdIsNull() {
+            var transferProcess = transferProcessBuilder()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId(null)
+                    .build();
+
+            var result = flowController.terminate(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verifyNoInteractions(dataPlaneClient, clientFactory, selectorService);
+        }
+    }
+
+    @Nested
+    class Started {
+
+        @Test
+        void shouldCallStarted() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("dataPlaneId")
+                    .build();
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            var dspDataAddress = createDspDataAddress();
+            when(dataPlaneClient.started(any(), any())).thenReturn(StatusResult.success());
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            when(typeTransformerRegistry.transform(isA(DataAddress.class), any())).thenReturn(Result.success(dspDataAddress));
+
+            var result = flowController.started(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).started(eq("transferProcessId"), argThat(msg -> msg.getDataAddress().equals(dspDataAddress)));
+            verify(clientFactory).createClient(dataPlaneInstance);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneDoesNotExist() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("invalid")
+                    .build();
+            when(selectorService.findById(any())).thenReturn(ServiceResult.notFound("not found"));
+
+            var result = flowController.started(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneIdIsNull() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId(null)
+                    .build();
+
+            var result = flowController.started(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory, selectorService);
+        }
+
+    }
+
+    @Nested
+    class Completed {
+
+        @Test
+        void shouldCallComplete() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("dataPlaneId")
+                    .build();
+            when(dataPlaneClient.completed(any())).thenReturn(StatusResult.success());
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+
+            var result = flowController.completed(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).completed("transferProcessId");
+            verify(clientFactory).createClient(dataPlaneInstance);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneDoesNotExist() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("invalid")
+                    .build();
+            when(selectorService.findById(any())).thenReturn(ServiceResult.notFound("not found"));
+
+            var result = flowController.completed(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneIdIsNull() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId(null)
+                    .build();
+
+            var result = flowController.completed(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory, selectorService);
+        }
+
+    }
+
+    @Nested
+    class Suspend {
+
+        @Test
+        void shouldCallSuspend() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("dataPlaneId")
+                    .build();
+            when(dataPlaneClient.suspend(any(), any())).thenReturn(StatusResult.success());
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+
+            var result = flowController.suspend(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).suspend(eq("transferProcessId"), isA(DataFlowSuspendMessage.class));
+            verify(clientFactory).createClient(dataPlaneInstance);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneDoesNotExist() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("invalid")
+                    .build();
+            when(selectorService.findById(any())).thenReturn(ServiceResult.notFound("not found"));
+
+            var result = flowController.suspend(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneIdIsNull() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId(null)
+                    .build();
+
+            var result = flowController.suspend(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory, selectorService);
+        }
+
+    }
+
+    @Nested
+    class Resume {
+
+        @Test
+        void shouldCallResumeWithoutDataAddress_whenTransferDoesntOwnDataAddress() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("dataPlaneId")
+                    .dataAddressOwner(false)
+                    .build();
+            when(dataPlaneClient.resume(any(), any())).thenReturn(StatusResult.success(DataFlowStatusMessage.Builder.newInstance().build()));
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            var response = DataFlowResponse.Builder.newInstance().dataPlaneId("dataPlaneId").dataAddress(testDataAddress()).build();
+            when(typeTransformerRegistry.transform(isA(DataFlowStatusMessage.class), any())).thenReturn(Result.success(response));
+
+            var result = flowController.resume(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).resume(eq("transferProcessId"), isA(DataFlowResumeMessage.class));
+            verify(clientFactory).createClient(dataPlaneInstance);
+            verifyNoInteractions(dataAddressStore);
+        }
+
+        @Test
+        void shouldCallResumeWithDataAddress_whenTransferOwnsDataAddress() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .dataPlaneId("dataPlaneId")
+                    .dataAddressOwner(true)
+                    .build();
+            when(dataAddressStore.resolve(any())).thenReturn(StoreResult.success(testDataAddress()));
+            when(dataPlaneClient.resume(any(), any())).thenReturn(StatusResult.success(DataFlowStatusMessage.Builder.newInstance().build()));
+            var dataPlaneInstance = dataPlaneInstanceBuilder().id("dataPlaneId").build();
+            when(clientFactory.createClient(any())).thenReturn(dataPlaneClient);
+            when(selectorService.findById(any())).thenReturn(ServiceResult.success(dataPlaneInstance));
+            var dspDataAddress = createDspDataAddress();
+            when(typeTransformerRegistry.transform(isA(DataAddress.class), any())).thenReturn(Result.success(dspDataAddress));
+            var response = DataFlowResponse.Builder.newInstance().dataPlaneId("dataPlaneId").dataAddress(testDataAddress()).build();
+            when(typeTransformerRegistry.transform(isA(DataFlowStatusMessage.class), any())).thenReturn(Result.success(response));
+
+            var result = flowController.resume(transferProcess);
+
+            assertThat(result).isSucceeded();
+            verify(dataPlaneClient).resume(eq("transferProcessId"), argThat(message -> message.getDataAddress().equals(dspDataAddress)));
+            verify(clientFactory).createClient(dataPlaneInstance);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneDoesNotExist() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId("invalid")
+                    .build();
+            when(selectorService.findById(any())).thenReturn(ServiceResult.notFound("not found"));
+
+            var result = flowController.resume(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory);
+        }
+
+        @Test
+        void shouldFail_whenDataPlaneIdIsNull() {
+            var transferProcess = TransferProcess.Builder.newInstance()
+                    .id("transferProcessId")
+                    .contentDataAddress(testDataAddress())
+                    .dataPlaneId(null)
+                    .build();
+
+            var result = flowController.resume(transferProcess);
+
+            assertThat(result).isFailed();
+            verifyNoInteractions(dataPlaneClient, clientFactory, selectorService);
+        }
+
+    }
+
+    @Nested
+    class TransferTypes {
+
+        @Test
+        void transferTypes_shouldReturnTypesForSpecifiedAsset() {
+
+            var assetNoResponse = Asset.Builder.newInstance().dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build()).build();
+            when(selectorService.search(any())).thenReturn(ServiceResult.success(List.of(
+                    dataPlaneInstanceBuilder().allowedTransferType("Custom-PUSH").build(),
+                    dataPlaneInstanceBuilder().allowedTransferType("Custom-PULL").build()
+            )));
+
+            var transferTypes = flowController.transferTypesFor(assetNoResponse);
+
+            assertThat(transferTypes).containsExactly("Custom-PUSH", "Custom-PULL");
+        }
+
+        @Test
+        void shouldReturnEmptyList_whenCannotGetDataplaneInstances() {
+            when(selectorService.search(any())).thenReturn(ServiceResult.unexpected("error"));
+            var asset = Asset.Builder.newInstance().dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build()).build();
+
+            var transferTypes = flowController.transferTypesFor(asset);
+
+            assertThat(transferTypes).isEmpty();
+        }
+
+        @Test
+        void shouldFilterByAssetProfile_whenProfilesAreSet() {
+            when(selectorService.search(any())).thenReturn(ServiceResult.success(List.of(
+                    dataPlaneInstanceBuilder().allowedTransferType("Http-PULL").build(),
+                    dataPlaneInstanceBuilder().allowedTransferType("S3-PULL").build()
+            )));
+            var metadata = DataplaneMetadata.Builder.newInstance().profile("Http-PULL").build();
+            var asset = Asset.Builder.newInstance()
+                    .dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build())
+                    .dataplaneMetadata(metadata)
+                    .build();
+
+            var transferTypes = flowController.transferTypesFor(asset);
+
+            assertThat(transferTypes).containsExactly("Http-PULL");
+        }
+
+        @Test
+        void shouldReturnAllTypes_whenAssetHasNoProfiles() {
+            when(selectorService.search(any())).thenReturn(ServiceResult.success(List.of(
+                    dataPlaneInstanceBuilder().allowedTransferType("Http-PULL").build(),
+                    dataPlaneInstanceBuilder().allowedTransferType("S3-PULL").build()
+            )));
+            var asset = Asset.Builder.newInstance()
+                    .dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build())
+                    .build();
+
+            var transferTypes = flowController.transferTypesFor(asset);
+
+            assertThat(transferTypes).containsExactlyInAnyOrder("Http-PULL", "S3-PULL");
+        }
+
+        @Test
+        void shouldFilterDataPlanesByParticipantContext() {
+            when(selectorService.search(any())).thenReturn(ServiceResult.success(List.of(
+                    dataPlaneInstanceBuilder().allowedTransferType("Http-PULL").build()
+            )));
+            var asset = Asset.Builder.newInstance()
+                    .participantContextId("participant-1")
+                    .dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build())
+                    .build();
+
+            flowController.transferTypesFor(asset);
+
+            verify(selectorService).search(argThat(querySpec -> querySpec.getFilterExpression().stream().anyMatch(criterion ->
+                    "participantContextId".equals(criterion.getOperandLeft()) &&
+                            "=".equals(criterion.getOperator()) &&
+                            "participant-1".equals(criterion.getOperandRight()))));
+        }
+
+        @Test
+        void shouldResolveAssetById_whenLookingUpByAssetId() {
+            var asset = Asset.Builder.newInstance()
+                    .id("assetId")
+                    .participantContextId("participant-1")
+                    .dataAddress(DataAddress.Builder.newInstance().type("TargetSrc").build())
+                    .build();
+            when(assetIndex.findById("assetId")).thenReturn(asset);
+            when(selectorService.search(any())).thenReturn(ServiceResult.success(List.of(
+                    dataPlaneInstanceBuilder().allowedTransferType("Http-PULL").build()
+            )));
+
+            var transferTypes = flowController.transferTypesFor("assetId");
+
+            assertThat(transferTypes).containsExactly("Http-PULL");
+            verify(selectorService).search(argThat(querySpec -> querySpec.getFilterExpression().stream().anyMatch(criterion ->
+                    "participantContextId".equals(criterion.getOperandLeft()) &&
+                            "participant-1".equals(criterion.getOperandRight()))));
+        }
+
+        @Test
+        void shouldReturnEmpty_whenAssetIdNotFound() {
+            when(assetIndex.findById("missing")).thenReturn(null);
+
+            var transferTypes = flowController.transferTypesFor("missing");
+
+            assertThat(transferTypes).isEmpty();
+            verifyNoInteractions(selectorService);
+        }
+    }
+}
