@@ -1,0 +1,305 @@
+/*
+ *  Copyright (c) 2025 Think-it GmbH
+ *
+ *  This program and the accompanying materials are made available under the
+ *  terms of the Apache License, Version 2.0 which is available at
+ *  https://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  SPDX-License-Identifier: Apache-2.0
+ *
+ *  Contributors:
+ *       Think-it GmbH - initial API and implementation
+ *
+ */
+
+package org.eclipse.edc.signaling.logic;
+
+import org.eclipse.edc.connector.controlplane.asset.spi.domain.Asset;
+import org.eclipse.edc.connector.controlplane.asset.spi.domain.DataplaneMetadata;
+import org.eclipse.edc.connector.controlplane.asset.spi.index.AssetIndex;
+import org.eclipse.edc.connector.controlplane.transfer.spi.flow.DataFlowController;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.DataAddressStore;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.DataFlowResponse;
+import org.eclipse.edc.connector.controlplane.transfer.spi.types.TransferProcess;
+import org.eclipse.edc.connector.dataplane.selector.spi.DataPlaneSelectorService;
+import org.eclipse.edc.connector.dataplane.selector.spi.instance.DataPlaneInstance;
+import org.eclipse.edc.policy.model.Policy;
+import org.eclipse.edc.signaling.domain.DataFlowPrepareMessage;
+import org.eclipse.edc.signaling.domain.DataFlowResumeMessage;
+import org.eclipse.edc.signaling.domain.DataFlowStartMessage;
+import org.eclipse.edc.signaling.domain.DataFlowStartedNotificationMessage;
+import org.eclipse.edc.signaling.domain.DataFlowSuspendMessage;
+import org.eclipse.edc.signaling.domain.DataFlowTerminateMessage;
+import org.eclipse.edc.signaling.domain.DspDataAddress;
+import org.eclipse.edc.signaling.port.ClientFactory;
+import org.eclipse.edc.spi.response.StatusResult;
+import org.eclipse.edc.spi.result.Result;
+import org.eclipse.edc.spi.result.ServiceResult;
+import org.eclipse.edc.transform.spi.TypeTransformerRegistry;
+import org.jetbrains.annotations.NotNull;
+
+import java.net.URI;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+
+import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toSet;
+import static org.eclipse.edc.participantcontext.spi.types.ParticipantResource.queryByParticipantContextId;
+import static org.eclipse.edc.spi.response.ResponseStatus.FATAL_ERROR;
+
+/**
+ * Data plane signaling implementation of the DataFlowController
+ */
+public class DataPlaneSignalingFlowController implements DataFlowController {
+
+    private final URI callbackUri;
+    private final DataPlaneSelectorService selectorClient;
+    private final TypeTransformerRegistry typeTransformerRegistry;
+    private final ClientFactory clientFactory;
+    private final DataAddressStore dataAddressStore;
+    private final AssetIndex assetIndex;
+
+    public DataPlaneSignalingFlowController(URI callbackUri, DataPlaneSelectorService selectorClient,
+                                            TypeTransformerRegistry typeTransformerRegistry, ClientFactory clientFactory,
+                                            DataAddressStore dataAddressStore, AssetIndex assetIndex) {
+        this.callbackUri = callbackUri;
+        this.selectorClient = selectorClient;
+        this.typeTransformerRegistry = typeTransformerRegistry;
+        this.clientFactory = clientFactory;
+        this.dataAddressStore = dataAddressStore;
+        this.assetIndex = assetIndex;
+    }
+
+    @Override
+    public boolean canHandle(TransferProcess transferProcess) {
+        return true;
+    }
+
+    @Override
+    public StatusResult<DataFlowResponse> prepare(TransferProcess transferProcess, Policy policy) {
+        var selection = selectorClient.selectFor(transferProcess);
+        if (!selection.succeeded()) {
+            return StatusResult.failure(FATAL_ERROR, selection.getFailureDetail());
+        }
+
+        var builder = DataFlowPrepareMessage.Builder.newInstance()
+                .messageId(UUID.randomUUID().toString())
+                .participantId(policy.getAssignee())
+                .counterPartyId(policy.getAssigner())
+                .dataspaceContext(transferProcess.getProtocol())
+                .processId(transferProcess.getId())
+                .agreementId(transferProcess.getContractId())
+                .datasetId(transferProcess.getAssetId())
+                .callbackAddress(callbackUri)
+                .transferType(transferProcess.getTransferType())
+                .claims(transferProcess.getClaims());
+
+        var dataplaneMetadata = transferProcess.getDataplaneMetadata();
+        if (dataplaneMetadata != null) {
+            builder.labels(dataplaneMetadata.getLabels());
+            builder.metadata(dataplaneMetadata.getProperties());
+        }
+
+        var message = builder.build();
+
+        var dataPlaneInstance = selection.getContent();
+        return clientFactory.createClient(dataPlaneInstance)
+                .prepare(message)
+                .compose(response -> typeTransformerRegistry.transform(response, DataFlowResponse.class)
+                        .<DataFlowResponse, Result<DataFlowResponse>>map(r -> r.toBuilder().dataPlaneId(dataPlaneInstance.getId()).build())
+                        .flatMap(this::toStatusResult));
+    }
+
+    @Override
+    public @NotNull StatusResult<DataFlowResponse> start(TransferProcess transferProcess, Policy policy) {
+        var selection = selectorClient.selectFor(transferProcess);
+        if (!selection.succeeded()) {
+            return StatusResult.failure(FATAL_ERROR, selection.getFailureDetail());
+        }
+
+        var builder = DataFlowStartMessage.Builder.newInstance()
+                .messageId(UUID.randomUUID().toString())
+                .participantId(policy.getAssigner())
+                .counterPartyId(policy.getAssignee())
+                .dataspaceContext(transferProcess.getProtocol())
+                .processId(transferProcess.getId())
+                .agreementId(transferProcess.getContractId())
+                .datasetId(transferProcess.getAssetId())
+                .callbackAddress(callbackUri)
+                .transferType(transferProcess.getTransferType())
+                .claims(transferProcess.getClaims());
+
+        var dataAddress = dataAddressStore.resolve(transferProcess).orElse(f -> null);
+        if (dataAddress != null) {
+            var dspDataAddressTransformation = typeTransformerRegistry.transform(dataAddress, DspDataAddress.class);
+            if (dspDataAddressTransformation.failed()) {
+                return StatusResult.failure(FATAL_ERROR, dspDataAddressTransformation.getFailureDetail());
+            }
+            builder.dataAddress(dspDataAddressTransformation.getContent());
+        }
+
+        var dataplaneMetadata = transferProcess.getDataplaneMetadata();
+        if (dataplaneMetadata != null) {
+            builder.labels(dataplaneMetadata.getLabels());
+            builder.metadata(dataplaneMetadata.getProperties());
+        }
+
+        var message = builder.build();
+
+        var dataPlaneInstance = selection.getContent();
+        return clientFactory.createClient(dataPlaneInstance)
+                .start(message)
+                .compose(response -> typeTransformerRegistry.transform(response, DataFlowResponse.class)
+                        .<DataFlowResponse, Result<DataFlowResponse>>map(r -> r.toBuilder().dataPlaneId(dataPlaneInstance.getId()).build())
+                        .flatMap(this::toStatusResult));
+    }
+
+    @Override
+    public StatusResult<Void> suspend(TransferProcess transferProcess) {
+        var dataPlaneId = transferProcess.getDataPlaneId();
+        if (dataPlaneId == null) {
+            return StatusResult.fatalError("DataPlane id is null");
+        }
+
+        var message = DataFlowSuspendMessage.Builder.newInstance()
+                .messageId(UUID.randomUUID().toString())
+                .reason("suspend")
+                .build();
+
+        return selectorClient.findById(transferProcess.getDataPlaneId())
+                .flatMap(this::toStatusResult)
+                .map(clientFactory::createClient)
+                .compose(client -> client.suspend(transferProcess.getId(), message));
+    }
+
+    @Override
+    public StatusResult<DataFlowResponse> resume(TransferProcess transferProcess) {
+        var dataPlaneId = transferProcess.getDataPlaneId();
+        if (dataPlaneId == null) {
+            return StatusResult.fatalError("DataPlane id is null");
+        }
+
+        var builder = DataFlowResumeMessage.Builder.newInstance()
+                .messageId(UUID.randomUUID().toString());
+
+        var dataAddress = transferProcess.isDataAddressOwner()
+                ? dataAddressStore.resolve(transferProcess).orElse(f -> null)
+                : null;
+        if (dataAddress != null) {
+            var dspDataAddressTransformation = typeTransformerRegistry.transform(dataAddress, DspDataAddress.class);
+            if (dspDataAddressTransformation.failed()) {
+                return StatusResult.failure(FATAL_ERROR, dspDataAddressTransformation.getFailureDetail());
+            }
+            builder.dataAddress(dspDataAddressTransformation.getContent());
+        }
+
+        var message = builder.build();
+
+        return selectorClient.findById(dataPlaneId)
+                .flatMap(this::toStatusResult)
+                .map(clientFactory::createClient)
+                .compose(client -> client.resume(transferProcess.getId(), message))
+                .compose(response -> typeTransformerRegistry.transform(response, DataFlowResponse.class)
+                        .<DataFlowResponse, Result<DataFlowResponse>>map(r -> r.toBuilder().dataPlaneId(dataPlaneId).build())
+                        .flatMap(this::toStatusResult));
+    }
+
+    @Override
+    public StatusResult<Void> terminate(TransferProcess transferProcess) {
+        var dataPlaneId = transferProcess.getDataPlaneId();
+        if (dataPlaneId == null) {
+            return StatusResult.success();
+        }
+
+        return selectorClient.findById(transferProcess.getDataPlaneId())
+                .flatMap(this::toStatusResult)
+                .map(clientFactory::createClient)
+                .compose(client -> {
+                    var message = DataFlowTerminateMessage.Builder.newInstance().messageId(UUID.randomUUID().toString()).build();
+                    return client.terminate(transferProcess.getId(), message);
+                });
+    }
+
+    @Override
+    public StatusResult<Void> started(TransferProcess transferProcess) {
+        var dataPlaneId = transferProcess.getDataPlaneId();
+        if (dataPlaneId == null) {
+            return StatusResult.fatalError("DataPlane id is null");
+        }
+
+        return selectorClient.findById(transferProcess.getDataPlaneId())
+                .flatMap(this::toStatusResult)
+                .map(clientFactory::createClient)
+                .compose(client -> {
+                    var builder = DataFlowStartedNotificationMessage.Builder.newInstance()
+                            .messageId(UUID.randomUUID().toString());
+                    var dataAddress = transferProcess.getContentDataAddress();
+                    if (dataAddress != null) {
+                        var dspDataAddressTransformation = typeTransformerRegistry.transform(dataAddress, DspDataAddress.class);
+                        if (dspDataAddressTransformation.failed()) {
+                            return StatusResult.failure(FATAL_ERROR, dspDataAddressTransformation.getFailureDetail());
+                        }
+                        builder.dataAddress(dspDataAddressTransformation.getContent());
+                    }
+
+                    return client.started(transferProcess.getId(), builder.build());
+                });
+    }
+
+    @Override
+    public StatusResult<Void> completed(TransferProcess transferProcess) {
+        var dataPlaneId = transferProcess.getDataPlaneId();
+        if (dataPlaneId == null) {
+            return StatusResult.fatalError("DataPlane id is null");
+        }
+
+        return selectorClient.findById(transferProcess.getDataPlaneId())
+                .flatMap(this::toStatusResult)
+                .map(clientFactory::createClient)
+                .compose(client -> client.completed(transferProcess.getId()));
+    }
+
+    @Override
+    public Set<String> transferTypesFor(Asset asset) {
+        var profiles = Optional.ofNullable(asset.getDataplaneMetadata())
+                .map(DataplaneMetadata::getProfiles)
+                .orElse(List.of());
+        return transferTypes(asset.getParticipantContextId(), profiles);
+    }
+
+    @Override
+    public Set<String> transferTypesFor(String assetId) {
+        return Optional.ofNullable(assetIndex.findById(assetId))
+                .map(this::transferTypesFor)
+                .orElseGet(Collections::emptySet);
+    }
+
+    private @NotNull Set<String> transferTypes(String participantContextId, List<String> profiles) {
+        return selectorClient.search(queryByParticipantContextId(participantContextId).build())
+                .map(Collection::stream)
+                .map(dataPlane -> dataPlane.map(DataPlaneInstance::getAllowedTransferTypes)
+                        .filter(allowedTransferTypes -> profiles.isEmpty() || !Collections.disjoint(allowedTransferTypes, profiles))
+                        .flatMap(Collection::stream).collect(toSet()))
+                .orElse(f -> emptySet());
+    }
+
+    private @NotNull StatusResult<DataPlaneInstance> toStatusResult(ServiceResult<DataPlaneInstance> r) {
+        if (r.succeeded()) {
+            return StatusResult.success(r.getContent());
+        } else {
+            return StatusResult.failure(FATAL_ERROR, r.getFailureDetail());
+        }
+    }
+
+    private @NotNull StatusResult<DataFlowResponse> toStatusResult(Result<DataFlowResponse> it) {
+        if (it.succeeded()) {
+            return StatusResult.success(it.getContent());
+        } else {
+            return StatusResult.failure(FATAL_ERROR, it.getFailureDetail());
+        }
+    }
+}
