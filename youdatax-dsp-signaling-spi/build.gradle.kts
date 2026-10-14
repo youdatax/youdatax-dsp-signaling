@@ -9,7 +9,7 @@
  *
  *  Contributors:
  *       Think-it GmbH - initial API and implementation
- *
+ * \data-protocols\data-plane-signaling\data-plane-signaling-spi
  */
 
 plugins {

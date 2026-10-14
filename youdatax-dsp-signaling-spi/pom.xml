@@ -1,0 +1,32 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.youdatax.dsp</groupId>
+  <artifactId>youdatax-dsp-signaling-spi</artifactId>
+  <version>0.0.3-SNAPSHOT</version>
+  <name>yospace-core-spi</name>
+  <description>yospace-core-spi</description>
+  
+  <dependencies>
+<!--      api(project(":spi:common:core-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>    
+<!--    api(project(":spi:data-plane-selector:data-plane-selector-spi"))-->
+      <dependency>
+        <groupId>com.yospace.dataplaneselector</groupId>
+        <artifactId>yospace-data-plane-selector-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>        
+
+<!--    testFixturesImplementation(libs.restAssured)
+    testFixturesImplementation(libs.awaitility)
+    testFixturesImplementation(project(":core:common:junit"))
+    testFixturesImplementation(libs.wiremock) {
+        exclude("com.networknt", "json-schema-validator")
+    }
+    testFixturesImplementation(libs.nimbus.jwt)
+-->    
+  </dependencies>  
+</project>
