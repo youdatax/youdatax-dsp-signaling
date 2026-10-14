@@ -9,7 +9,7 @@
  *
  *  Contributors:
  *       Microsoft Corporation - initial API and implementation
- *
+ * \core\data-plane-selector\data-plane-selector-core
  */
 
 plugins {
