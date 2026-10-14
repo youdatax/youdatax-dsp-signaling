@@ -1,0 +1,77 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.youdatax.dsp</groupId>
+  <artifactId>youdatax-dsp-signaling-api-selector</artifactId>
+  <version>0.0.3-SNAPSHOT</version>
+  <name>yospace-ext-data-plane-selector-control-api</name>
+  <description>yospace-ext-data-plane-selector-control-api</description>
+  
+  <dependencies>
+<!--    api(project(":spi:common:web-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-web</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:participant-context-single-spi"))-->
+      <dependency>
+        <groupId>com.yospace.participantcontext</groupId>
+        <artifactId>yospace-participant-context-spi-single</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>    
+<!--    api(project(":spi:data-plane-selector:data-plane-selector-spi"))-->
+      <dependency>
+        <groupId>com.yospace.dataplaneselector</groupId>
+        <artifactId>yospace-data-plane-selector-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    implementation(project(":core:common:lib:api-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-api</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>    
+<!--    implementation(project(":core:common:lib:transform-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-transform</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>    
+<!--    implementation(project(":core:common:lib:validator-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-validator</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>    
+<!--    implementation(libs.jakarta.rsApi)
+jakarta-rsApi = { module = "jakarta.ws.rs:jakarta.ws.rs-api", version.ref = "rsApi" }-->
+      <dependency>
+        <groupId>jakarta.ws.rs</groupId>
+        <artifactId>jakarta.ws.rs-api</artifactId>
+        <version>4.0.0</version>
+      </dependency>
+      
+ <!--   testImplementation(project(":core:common:junit"))-->
+      <dependency>
+        <groupId>org.eclipse.edc</groupId>
+        <artifactId>junit</artifactId>
+        <version>0.18.0</version>
+        <scope>test</scope>
+      </dependency>
+ <!--   testImplementation(testFixtures(project(":extensions:common:http:jersey-core")))-->
+      <dependency>
+        <groupId>org.eclipse.edc</groupId>
+        <artifactId>jersey-core</artifactId>
+        <version>0.18.0</version>
+        <scope>test</scope>
+      </dependency>    
+<!--    testImplementation(libs.restAssured)
+restAssured = { module = "io.rest-assured:rest-assured", version.ref = "restAssured" }-->
+      <dependency>
+        <groupId>io.rest-assured</groupId>
+        <artifactId>rest-assured</artifactId>
+        <version>5.5.6</version>
+        <scope>test</scope>
+      </dependency>  
+   </dependencies> 
+</project>

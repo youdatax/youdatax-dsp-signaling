@@ -9,7 +9,7 @@
  *
  *  Contributors:
  *       Bayerische Motoren Werke Aktiengesellschaft (BMW AG) - initial API and implementation
- *
+ * \extensions\data-plane-selector\data-plane-selector-control-api
  */
 
 
