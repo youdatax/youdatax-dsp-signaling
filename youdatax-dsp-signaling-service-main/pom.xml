@@ -1,0 +1,118 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.youdatax.dsp</groupId>
+  <artifactId>youdatax-dsp-signaling-service-main</artifactId>
+  <version>0.0.3-SNAPSHOT</version>
+  <name>yospace-dsp-data-plane-signaling</name>
+  <description>yospace-dsp-data-plane-signaling</description>
+  
+  <dependencies>
+<!--  
+    api(project(":spi:common:core-spi"))
+    api(project(":spi:common:http-spi"))
+    api(project(":spi:common:json-ld-spi"))
+    api(project(":spi:common:transform-spi"))
+    api(project(":spi:common:web-spi"))
+    api(project(":spi:common:auth-spi"))
+    api(project(":spi:common:participant-context-single-spi"))
+    api(project(":spi:control-plane:contract-spi"))
+    api(project(":spi:control-plane:control-plane-spi"))
+    api(project(":spi:control-plane:transfer-spi"))
+    api(project(":spi:data-plane-selector:data-plane-selector-spi"))
+    api(project(":data-protocols:data-plane-signaling:data-plane-signaling-spi"))
+    implementation(project(":core:common:lib:api-lib"))
+    implementation(project(":extensions:data-plane:data-plane-signaling:data-plane-signaling-transform"))
+    implementation(libs.jakarta.annotation)
+
+    testImplementation(project(":core:common:junit"))
+    testImplementation(testFixtures(project(":extensions:common:http:jersey-core")))
+    testImplementation(testFixtures(project(":core:common:lib:http-lib")))
+    testImplementation(libs.restAssured)
+    testImplementation(libs.wiremock)  
+-->  
+<!--    api(project(":spi:common:core-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:http-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-http</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:json-ld-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-json-ld</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:transform-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-transform</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:web-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-web</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:auth-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-auth</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:participant-context-single-spi"))-->
+      <dependency>
+        <groupId>com.yospace.participantcontext</groupId>
+        <artifactId>yospace-participant-context-spi-single</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:control-plane:contract-spi"))-->
+      <dependency>
+        <groupId>com.yospace.controlplane</groupId>
+        <artifactId>yospace-control-plane-spi-contract</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:control-plane:control-plane-spi"))-->
+      <dependency>
+        <groupId>com.yospace.controlplane</groupId>
+        <artifactId>yospace-control-plane-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:control-plane:transfer-spi"))-->
+      <dependency>
+        <groupId>com.yospace.controlplane</groupId>
+        <artifactId>yospace-control-plane-spi-transfer</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:data-plane-selector:data-plane-selector-spi"))-->
+
+<!--    api(project(":data-protocols:data-plane-signaling:data-plane-signaling-spi"))-->
+      <dependency>
+        <groupId>com.yospace.data</groupId>
+        <artifactId>yospace-data-plane-signaling-spi</artifactId> 
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    implementation(project(":core:common:lib:api-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-api</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    implementation(project(":extensions:data-plane:data-plane-signaling:data-plane-signaling-transform"))-->
+
+<!--    implementation(libs.jakarta.annotation)-->
+
+
+<!--    testImplementation(project(":core:common:junit"))
+    testImplementation(testFixtures(project(":extensions:common:http:jersey-core")))
+    testImplementation(testFixtures(project(":core:common:lib:http-lib")))
+    testImplementation(libs.restAssured)
+    testImplementation(libs.wiremock)  -->
+  </dependencies>
+</project>
