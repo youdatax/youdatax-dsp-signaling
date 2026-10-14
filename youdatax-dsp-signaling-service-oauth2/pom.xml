@@ -1,0 +1,58 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.youdatax.dsp</groupId>
+  <artifactId>youdatax-dsp-singnaling-service-oauth2</artifactId>
+  <version>0.0.3.0</version>
+  <name>yospace-core-spi</name>
+  <description>yospace-core-spi</description>
+  
+  <dependencies>
+  <!--    api(project(":spi:common:http-spi"))-->
+       <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-http</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency> 
+<!--    api(project(":spi:common:oauth2-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-oauth2-client</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":spi:common:keys-spi"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi-keys</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    api(project(":data-protocols:data-plane-signaling:data-plane-signaling-spi"))-->
+      <dependency>
+        <groupId>org.youdatax.dsp</groupId>
+        <artifactId>youdatax-dsp-signaling-spi</artifactId>  
+        <version>0.0.3.0</version>
+      </dependency>
+<!--    implementation(project(":core:common:lib:keys-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-keys</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    implementation(project(":core:common:lib:token-lib"))-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-lib-token</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+<!--    implementation(libs.nimbus.jwt)-->
+      <dependency>
+        <groupId>com.yospace.core</groupId>
+        <artifactId>yospace-core-spi</artifactId>
+        <version>0.0.3-SNAPSHOT</version>
+      </dependency>
+      
+<!--    testImplementation(project(":core:common:junit"))
+    testImplementation(project(":core:common:lib:keys-lib"))
+    testImplementation(project(":core:common:lib:crypto-common-lib"))
+    testImplementation(libs.wiremock)-->
+  </dependencies>  
+</project>
