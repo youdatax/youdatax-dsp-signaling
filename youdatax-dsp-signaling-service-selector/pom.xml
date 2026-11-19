@@ -2,46 +2,46 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.youdatax.dsp</groupId>
   <artifactId>youdatax-dsp-signaling-service-selector</artifactId>
-  <version>0.0.3.0</version>
+  <version>0.0.4.0</version>
   <name>yospace-core-data-plane-selector-core </name>
   <description>yospace-core-data-plane-selector-core </description>
   
   <dependencies>
 <!--    api(project(":spi:data-plane-selector:data-plane-selector-spi"))-->
       <dependency>
-        <groupId>com.yospace.dataplaneselector</groupId> 
-        <artifactId>yospace-data-plane-selector-spi</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.common</groupId> 
+        <artifactId>youdatax-common-spi-data-plane-selector</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:common:transaction-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-transaction</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-transaction</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    implementation(project(":core:common:lib:query-lib"))-->
       <dependency>
-        <groupId>com.yospace.common</groupId>
-        <artifactId>yospace-common-query-lib</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-lib-query</artifactId>
+        <version>0.0.4.0</version>
       </dependency>    
 <!--    implementation(project(":core:common:lib:state-machine-lib"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-lib-state-machine</artifactId> 
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-lib-state-machine</artifactId> 
+        <version>0.0.4.0</version>
       </dependency>    
 <!--    implementation(project(":core:common:lib:store-lib"))-->
       <dependency>
-        <groupId>com.yospace.common</groupId>
-        <artifactId>yospace-common-store-lib</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-lib-store</artifactId>
+        <version>0.0.4.0</version>
       </dependency>    
 <!--    implementation(project(":core:common:lib:util-lib"))-->
       <dependency>
-        <groupId>com.yospace.common</groupId>
-        <artifactId>yospace-common-util-lib</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-lib-util</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
       
 <!--    testImplementation(project(":core:common:junit"))-->
