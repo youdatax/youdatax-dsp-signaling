@@ -32,77 +32,77 @@
 -->  
 <!--    api(project(":spi:common:core-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-common</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    api(project(":spi:common:http-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-http</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-http</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    api(project(":spi:common:json-ld-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-json-ld</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-json-ld</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    api(project(":spi:common:transform-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-transform</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-transform</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    api(project(":spi:common:web-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-web</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-spi-web</artifactId>
+        <version>0.0.3.0</version>
       </dependency>
 <!--    api(project(":spi:common:auth-spi"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-spi-auth</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.common</groupId>
+        <artifactId>youdatax-common-spi-auth</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:common:participant-context-single-spi"))-->
       <dependency>
-        <groupId>com.yospace.participantcontext</groupId>
-        <artifactId>yospace-participant-context-spi-single</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.participant</groupId>
+        <artifactId>youdatax-participant-context-spi-single</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:control-plane:contract-spi"))-->
       <dependency>
-        <groupId>com.yospace.controlplane</groupId>
-        <artifactId>yospace-control-plane-spi-contract</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.controlp</groupId>
+        <artifactId>youdatax-control-plane-spi-contract</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:control-plane:control-plane-spi"))-->
       <dependency>
-        <groupId>com.yospace.controlplane</groupId>
-        <artifactId>yospace-control-plane-spi</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.controlp</groupId>
+        <artifactId>youdatax-control-plane-spi</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:control-plane:transfer-spi"))-->
       <dependency>
-        <groupId>com.yospace.controlplane</groupId>
-        <artifactId>yospace-control-plane-spi-transfer</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.controlp</groupId>
+        <artifactId>youdatax-control-plane-spi-transfer</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    api(project(":spi:data-plane-selector:data-plane-selector-spi"))-->
 
 <!--    api(project(":data-protocols:data-plane-signaling:data-plane-signaling-spi"))-->
       <dependency>
-        <groupId>com.yospace.data</groupId>
-        <artifactId>yospace-data-plane-signaling-spi</artifactId> 
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.dsp</groupId>
+        <artifactId>youdatax-dsp-signaling-spi</artifactId> 
+        <version>0.0.4-SNAPSHOT</version>
       </dependency>
 <!--    implementation(project(":core:common:lib:api-lib"))-->
       <dependency>
-        <groupId>com.yospace.core</groupId>
-        <artifactId>yospace-core-lib-api</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <groupId>org.youdatax.core</groupId>
+        <artifactId>youdatax-core-lib-api</artifactId>
+        <version>0.0.4.0</version>
       </dependency>
 <!--    implementation(project(":extensions:data-plane:data-plane-signaling:data-plane-signaling-transform"))-->
 
